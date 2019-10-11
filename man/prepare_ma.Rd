@@ -57,6 +57,3 @@ If multiple operations are performed, they are taken in this order:
 \author{
 Witold Wiecek
 }
-\author{
-Witold Wiecek
-}
