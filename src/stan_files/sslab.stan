@@ -95,7 +95,9 @@ transformed parameters{
     tau_k = eta_tau_k;
     sigma_control_k = eta_sigma_control_k;
     sigma_TE_k = eta_sigma_TE_k;
-    kappa_k = append_row(kappa_k_raw, rep_row_vector(0, P)); // this adds the ref category
+    for(k in 1:K){
+    kappa_k[k] = append_row(kappa_k_raw[k], rep_row_vector(0, P)); // this adds the ref category
+    }
   }
 
   if(pooling_type == 1){
