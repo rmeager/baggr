@@ -77,13 +77,14 @@ parameters {
   matrix[K_pooled,2] eta_tau_k;
   matrix[K_pooled,2] eta_sigma_control_k;
   matrix[K_pooled,2] eta_sigma_TE_k;
-  matrix[M-1,P] kappa[pooling_type != 0? 1: 0]; // the parent parameters minus the Mth category
-  matrix<lower=0>[M,P] hypersd_kappa[pooling_type == 1? 1: 0]; // the set of M*P parent variances (not a covariance matrix)
-  matrix[M,P] kappa_k_raw[K_pooled]; // the hierarchical increments
+  matrix[M-1,P] kappa[pooling_type != 0? 1: 0]; // the parent parameters, minus the Mth category
+  matrix<lower=0>[M-1,P] hypersd_kappa[pooling_type == 1? 1: 0]; // the set of parent variances (not a covariance matrix)
+  matrix[M-1,P] kappa_k_raw[K_pooled]; // the hierarchical increments, without the ref category
+  //RM attempt 1 note: let me make kappa_k full dimensional and kappa_k_raw MINUS the ref cat
 }
 
 transformed parameters{
-  matrix[M,P] kappa_k[K_pooled];
+  matrix[M,P] kappa_k[K_pooled]; // Now this includes the ref category!
   matrix[K_pooled,2] mu_k;
   matrix[K_pooled,2] tau_k;
   matrix[K_pooled,2] sigma_control_k;
@@ -94,7 +95,7 @@ transformed parameters{
     tau_k = eta_tau_k;
     sigma_control_k = eta_sigma_control_k;
     sigma_TE_k = eta_sigma_TE_k;
-    kappa_k = kappa_k_raw;
+    kappa_k = append_row(kappa_k_raw, rep_row_vector(0, P)); // this adds the ref category
   }
 
   if(pooling_type == 1){
@@ -105,8 +106,9 @@ transformed parameters{
       sigma_TE_k[,i] = sigma_TE[i] + hypersd_sigma_TE[i]*eta_sigma_TE_k[,i];
     }
     for (k in 1:K_pooled)
-      //IS THIS BIT CORRECT? (mean kappa = 0 on the last row, but then group-effect is added)
-      kappa_k[k] = append_row(kappa[1],rep_row_vector(0, P)) + hypersd_kappa[1] .* kappa_k_raw[k];
+      //The last category, the reference category, must be zero
+      // RM note for attempt 1: I am not sure about this multiplication operator here
+      kappa_k[k] = append_row(kappa[1] + hypersd_kappa[1] .* kappa_k_raw[k], rep_row_vector(0, P));
   }
 }
 
@@ -114,7 +116,7 @@ model {
 
   // PRIORS
   if(pooling_type==0){
-    for (m in 1:M)
+    for (m in 1:(M-1)) // RM attempt 1 note: prior is not relevant to ref category
       for (k in 1:K)
         target += prior_increment_vec(prior_kappa_fam, kappa_k_raw[k,m]', prior_kappa_val);
 
@@ -142,6 +144,7 @@ model {
     target += prior_increment_vec(prior_kappa_fam, to_vector(kappa[1]) , prior_kappa_val);
     // WW: HYPERSD_kappa matrix here is converted to vector and then iid priors given on each element of this matrix
     //     is this ok?
+    // RM: Yes this is right
     target += prior_increment_vec(prior_kappa_sd_fam, to_vector(hypersd_kappa[1]) , prior_kappa_sd_val);
   } // closes the pooling = 1 case
 
@@ -162,7 +165,7 @@ model {
     //Likelihood: 1/ hierarchy
     if(pooling_type==1){
       for (k in 1:K){
-        for (m in 1:M){
+        for (m in 1:(M-1)){
           kappa_k_raw[k,m] ~ normal(0,1);
         }
         eta_mu_k[k] ~ normal(0,1);
