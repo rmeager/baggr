@@ -41,7 +41,7 @@ sslab_test_data <- list( M = 3,
                          N = length(data$profit),
                          P = 2, # dimensionality of X and hence of kappa param in logit
                          K = length(unique(data$site)),
-                         pooling_type = 2, # 0 if none, 1 if partial, 2 if full
+                         pooling_type = 0, # 0 if none, 1 if partial, 2 if full
                          cat = data$cat,
                          N_neg = length(data$profit[data$cat ==1]),
                          N_pos = length(data$profit[data$cat ==3]),
@@ -51,8 +51,8 @@ sslab_test_data <- list( M = 3,
                          treatment_pos = data$treatment[data$cat ==3],
                          site_neg = data$site[data$cat ==1],
                          site_pos = data$site[data$cat ==3],
-                         y_neg = data$profit[data$cat ==1],
-                         y_pos = data$profit[data$cat ==1],
+                         y_neg = -data$profit[data$cat ==1],
+                         y_pos = data$profit[data$cat ==3],
                          prior_control_fam = 1,
                          prior_hypermean_fam = 1,
                          prior_scale_control_fam = 1,
@@ -78,7 +78,12 @@ sslab_test_data <- list( M = 3,
 
 options(mc.cores = 4)
 rstan_options(auto_write = TRUE)
-sm <- stan_model("/src/stan_files/sslab.stan")
+sm <- stan_model("src/stan_files/sslab.stan")
 
 stan_fit <- sampling(sm,
-                     iter = 200, chains = 4, data = fit_data)
+                     iter = 2000, chains = 4, data = sslab_test_data)
+print(stan_fit)
+
+
+# maybe just do a coverag test of the partial pooling model since that is what is simulated
+# maybe we need to re-simulate with the right kappa parameter though
