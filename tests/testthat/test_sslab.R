@@ -82,24 +82,26 @@ rstan_options(auto_write = TRUE)
 sm <- stan_model("src/stan_files/sslab.stan")
 
 stan_fit <- sampling(sm,
-                     iter = 2000, chains = 1, data = sslab_test_data)
+                     iter = 500, chains = 4, data = sslab_test_data)
 print(stan_fit)
+fit_summary <- summary(stan_fit)$summary
 
-
-# maybe just do a coverag test of the partial pooling model since that is what is simulated
+# now, a coverage test of the partial pooling model since that is what is simulated
 # we are not testing on kappa because we'd have to renormalize and I do not want to
-# instaed we will check on the others
+# instead we will check on the others
 
-
-
-param_names <- c("mu", "tau")
+S <- 50
+param_names <- rownames(fit_summary)[1:16]
 mse <- matrix(NA, length(param_names),S)
 calibration_check_95 <- matrix(NA, length(param_names),S)
 calibration_check_50 <- matrix(NA, length(param_names),S)
 
-true_params <- c(true_mu,
-                 #true_mu_m, true_tau_m,
-                 true_tau)
+true_params <- c(mu, tau, sd_mu, sd_tau,
+                 sigma_control, sigma_TE, sd_sigma_control, sd_sigma_TE)
+for(s in 1:S){
+  stan_fit <- sampling(sm,
+                       iter = 800, chains = 4, data = sslab_test_data)
+  fit_summary <- summary(stan_fit)$summary
 for(i in 1:length(param_names)){
   mse[i,s] <- (fit_summary[param_names[i], "mean"] - true_params[i])^2
   calibration_check_50[i,s] <- isTRUE(fit_summary[param_names[i], "25%"] <= true_params[i] &
@@ -112,7 +114,7 @@ for(i in 1:length(param_names)){
 } # closes forloop indexed by s
 
 
-# now make a table that has parameters on rows and performance metrics on columns
+ # now make a table that has parameters on rows and performance metrics on columns
 
 sim_table <- data.frame(param_names,
                         apply(mse,1,mean),
@@ -120,8 +122,11 @@ sim_table <- data.frame(param_names,
                         apply(calibration_check_95,1,mean))
 
 colnames(sim_table) <- c("Parameter", "MSE", "50% Interval Coverage", "95% Interval Coverage")
-sim_table[,"Parameter"] <- c("Hypermean", "HyperSD") #, "M Hypermean", "M HyperSD")
 # pdf("output/coverage_probs_sslab.pdf", width = 8, height = 3)
+library("gridExtra")
  grid.table(sim_table, rows = NULL)
 # dev.off()
+
+
+ # This is not amazing performance on the 50%, but very good on the 95%
 
